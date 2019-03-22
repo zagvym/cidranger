@@ -108,6 +108,25 @@ func (b *bruteRanger) CoveredNetworks(network net.IPNet) ([]RangerEntry, error) 
 	return results, nil
 }
 
+// CoveringNetworks returns the list of RangerEntry(s) covering the given ipnet
+// That is, the specified network is completely subsumed by the networks.
+// (This function is the opposite of `CoveredNetworks()`)
+func (b *bruteRanger) CoveringNetworks(network net.IPNet) ([]RangerEntry, error) {
+	entries, err := b.getEntriesByVersion(network.IP)
+	if err != nil {
+		return nil, err
+	}
+	var results []RangerEntry
+	testNetwork := rnet.NewNetwork(network)
+	for _, entry := range entries {
+		entryNetwork := rnet.NewNetwork(entry.Network())
+		if entryNetwork.Covers(testNetwork) {
+			results = append(results, entry)
+		}
+	}
+	return results, nil
+}
+
 func (b *bruteRanger) getEntriesByVersion(ip net.IP) (map[string]RangerEntry, error) {
 	if ip.To4() != nil {
 		return b.ipV4Entries, nil

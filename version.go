@@ -61,6 +61,14 @@ func (v *versionedRanger) CoveredNetworks(network net.IPNet) ([]RangerEntry, err
 	return ranger.CoveredNetworks(network)
 }
 
+func (v *versionedRanger) CoveringNetworks(network net.IPNet) ([]RangerEntry, error) {
+	ranger, err := v.getRangerForIP(network.IP)
+	if err != nil {
+		return nil, err
+	}
+	return ranger.CoveringNetworks(network)
+}
+
 func (v *versionedRanger) getRangerForIP(ip net.IP) (Ranger, error) {
 	if ip.To4() != nil {
 		return v.ipV4Ranger, nil

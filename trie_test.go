@@ -437,3 +437,102 @@ func TestPrefixTrieCoveredNetworks(t *testing.T) {
 		})
 	}
 }
+
+var coveringNetworkTests = []coveredNetworkTest{
+	{
+		rnet.IPv4,
+		[]string{"192.168.0.0/16"},
+		"192.168.0.0/24",
+		[]string{"192.168.0.0/16"},
+		"basic covering networks (only masks different)",
+	},
+	{
+		rnet.IPv4,
+		[]string{"192.168.0.0/24"},
+		"192.168.0.0/24",
+		[]string{"192.168.0.0/24"},
+		"covering the same networks",
+	},
+	{
+		rnet.IPv4,
+		[]string{"192.168.0.0/24"},
+		"10.1.0.0/16",
+		nil,
+		"nothing",
+	},
+	{
+		rnet.IPv4,
+		[]string{"192.168.1.0/24", "192.168.2.0/25"},
+		"192.168.3.0/24",
+		nil,
+		"nothing 2 (has similar prefix)",
+	},
+	{
+		rnet.IPv4,
+		[]string{"192.168.1.0/24", "192.168.2.0/24"},
+		"192.168.0.0/16",
+		nil,
+		"nothing 3 (larger range)",
+	},
+	{
+		rnet.IPv4,
+		[]string{"192.168.0.0/24", "192.168.0.0/25"},
+		"192.168.0.0/25",
+		[]string{"192.168.0.0/24", "192.168.0.0/25"},
+		"multiple networks",
+	},
+	{
+		rnet.IPv4,
+		[]string{"192.168.0.0/24", "192.168.0.0/25", "192.168.0.1/32"},
+		"192.168.0.1/32",
+		[]string{"192.168.0.0/24", "192.168.0.0/25", "192.168.0.1/32"},
+		"multiple networks with leaf",
+	},
+	{
+		rnet.IPv4,
+		[]string{"192.168.0.0/16"},
+		"192.168.1.1/32",
+		[]string{"192.168.0.0/16"},
+		"leaf with the same network",
+	},
+	{
+		rnet.IPv4,
+		[]string{"0.0.0.0/0", "192.168.1.1/32"},
+		"192.168.0.0/16",
+		[]string{"0.0.0.0/0"},
+		"leaf with root",
+	},
+	{
+		rnet.IPv4,
+		[]string{
+			"192.168.0.0/24", "192.168.1.1/32",
+			"10.1.0.0/16", "10.1.1.0/24",
+		},
+		"192.168.0.0/16",
+		[]string{},
+		"path not taken",
+	},
+}
+
+func TestPrefixTrieCoveringNetworks(t *testing.T) {
+	for _, tc := range coveringNetworkTests {
+		t.Run(tc.name, func(t *testing.T) {
+			trie := newPrefixTree(tc.version)
+			for _, insert := range tc.inserts {
+				_, network, _ := net.ParseCIDR(insert)
+				err := trie.Insert(NewBasicRangerEntry(*network))
+				assert.NoError(t, err)
+			}
+			var expectedEntries []RangerEntry
+			for _, network := range tc.networks {
+				_, net, _ := net.ParseCIDR(network)
+				expectedEntries = append(expectedEntries,
+					NewBasicRangerEntry(*net))
+			}
+			_, snet, _ := net.ParseCIDR(tc.search)
+			networks, err := trie.CoveringNetworks(*snet)
+			assert.NoError(t, err)
+			assert.Equal(t, expectedEntries, networks)
+		})
+	}
+}

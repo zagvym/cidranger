@@ -115,6 +115,14 @@ func (p *prefixTrie) CoveredNetworks(network net.IPNet) ([]RangerEntry, error) {
 	return p.coveredNetworks(net)
 }
 
+// CoveringNetworks returns the list of RangerEntry(s) covering the given ipnet
+// That is, the specified network is completely subsumed by the networks.
+// (This function is the opposite of `CoveredNetworks()`)
+func (p *prefixTrie) CoveringNetworks(network net.IPNet) ([]RangerEntry, error) {
+	net := rnet.NewNetwork(network)
+	return p.coveringNetworks(net, nil)
+}
+
 // String returns string representation of trie, mainly for visualization and
 // debugging.
 func (p *prefixTrie) String() string {
@@ -201,6 +209,30 @@ func (p *prefixTrie) coveredNetworks(network rnet.Network) ([]RangerEntry, error
 		}
 	}
 	return results, nil
+}
+
+func (p *prefixTrie) coveringNetworks(network rnet.Network, accum []RangerEntry) ([]RangerEntry, error) {
+	if p == nil {
+		return accum, nil
+	}
+	if !p.network.Covers(network) { // not found covering networks => stop searching
+		return accum, nil
+	}
+	if p.targetBitPosition() < 0 { // no child => stop searching
+		if p.entry != nil {
+			accum = append(accum, p.entry)
+		}
+		return accum, nil
+	}
+	bit, err := p.targetBitFromIP(network.Number)
+	if err != nil {
+		return accum, err
+	}
+	child := p.children[bit]
+	if p.entry != nil {
+		accum = append(accum, p.entry)
+	}
+	return child.coveringNetworks(network, accum) // continue to search child nodes recursively
 }
 
 func (p *prefixTrie) insert(network rnet.Network, entry RangerEntry) error {
